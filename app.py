@@ -2,10 +2,10 @@ import streamlit as st
 import openai
 from utils import generate_ethics_prompt
 
-# Set up the OpenAI API key from the Streamlit Cloud's secrets management
+# Set up OpenAI API key from Streamlit Secrets (Stored in the Streamlit Cloud)
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Streamlit Page Configuration
+# Streamlit page configuration
 st.set_page_config(
     page_title="Ethics in AI",
     page_icon="🤖",
@@ -17,12 +17,12 @@ st.sidebar.title("🧠 Ethics in AI Tool")
 st.sidebar.subheader("Explore ethical concerns in AI systems")
 
 # Model parameters from sidebar
-model = st.sidebar.selectbox("Select Model", ["GPT-4", "GPT-3.5"])
+model = st.sidebar.selectbox("Select Model", ["gpt-4", "gpt-3.5-turbo"])
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
 top_p = st.sidebar.slider("Top-P (Nucleus Sampling)", 0.0, 1.0, 0.9)
-max_tokens = st.sidebar.slider("Max Tokens", 10, 500, 200)
+max_tokens = st.sidebar.slider("Max Tokens", 50, 500, 200)
 
-# Predefined ethical topics for prompt engineering
+# Predefined ethical topics for prompt generation
 ethical_issue = st.sidebar.selectbox(
     "Select Ethical Issue", 
     ["Bias and Fairness", "Data Privacy", "Accountability", "Transparency", "Ethical AI Development"]
@@ -42,19 +42,27 @@ if ethical_issue == "Bias and Fairness":
     st.write("Bias and fairness concerns arise when AI systems disproportionately impact certain groups or individuals.")
 elif ethical_issue == "Data Privacy":
     st.write("Data privacy involves ensuring that AI systems handle sensitive user information securely.")
-# Add more descriptions as necessary for each topic
+elif ethical_issue == "Accountability":
+    st.write("Accountability concerns arise when AI systems make harmful or incorrect decisions.")
+elif ethical_issue == "Transparency":
+    st.write("Transparency is crucial to make AI algorithms explainable and understandable by stakeholders.")
+elif ethical_issue == "Ethical AI Development":
+    st.write("Ethical AI development involves integrating fairness, accountability, and transparency throughout the AI lifecycle.")
 
 # Button to generate response from GPT model
 if st.button("Generate Response"):
     with st.spinner("Thinking..."):
-        response = openai.Completion.create(
+        response = openai.ChatCompletion.create(
             model=model,
-            prompt=prompt_text,
+            messages=[
+                {"role": "system", "content": "You are an AI ethics assistant."},
+                {"role": "user", "content": prompt_text}
+            ],
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p
         )
-        ethics_response = response['choices'][0]['text']
+        ethics_response = response['choices'][0]['message']['content']
         st.write("### Generated Response")
         st.write(ethics_response)
 
