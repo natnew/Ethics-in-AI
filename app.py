@@ -1,7 +1,6 @@
 import streamlit as st
 import openai
 from utils import generate_ethics_prompt
-from openai.error import APIError, RateLimitError, InvalidRequestError, AuthenticationError
 
 # API Key Validation
 api_key = st.secrets.get("openai", {}).get("api_key")
@@ -82,7 +81,7 @@ if st.button("Generate Response"):
             ethics_response = response['choices'][0]['message']['content']
             st.write("### Generated Response")
             st.write(ethics_response)
-        except (APIError, RateLimitError, InvalidRequestError, AuthenticationError) as e:
+        except openai.error.OpenAIError as e:
             st.error(f"An error occurred: {str(e)}")
 
 # External link to your prompt engineering app
