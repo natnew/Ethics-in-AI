@@ -79,6 +79,6 @@ def get_model_response(model, prompt, temperature=0.7, top_p=1.0, max_tokens=200
 
         return generated_text.strip()
 
-    except Exception as e:
+    except openai.error.OpenAIError as e:  # Catch any OpenAI-related errors
         st.error(f"An error occurred: {str(e)}")
         return None
