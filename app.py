@@ -1,102 +1,80 @@
 import streamlit as st
-from prompt_engineering import apply_technique
-from models import get_model_response, MODELS
-from utils import load_techniques, load_prompts
-import os
+import openai
+from utils import generate_ethics_prompt
 
-# Load data for ethical techniques and prompts
-techniques = load_techniques()
-prompts_data = load_prompts()
+# Set up OpenAI API key from Streamlit Secrets (Stored in the Streamlit Cloud)
+openai.api_key = st.secrets["openai"]["api_key"]
 
-# Sidebar for user input
+# Streamlit page configuration
+st.set_page_config(
+    page_title="Ethics in AI",
+    page_icon="🤖",
+    layout="wide"
+)
+
+# Sidebar configuration
 st.sidebar.title("🧠 Ethics in AI Tool")
+st.sidebar.subheader("Explore ethical concerns in AI systems")
 
-# API Key validation
-if os.getenv("OPENAI_API_KEY"):
-    st.sidebar.success("✅ API key already provided!")
-else:
-    st.sidebar.error("❌ API key not provided. Please set your OpenAI API key.")
+# Model parameters from sidebar
+model = st.sidebar.selectbox("Select Model", ["gpt-4", "gpt-3.5-turbo"])
+temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
+top_p = st.sidebar.slider("Top-P (Nucleus Sampling)", 0.0, 1.0, 0.9)
+max_tokens = st.sidebar.slider("Max Tokens", 50, 500, 200)
 
-# Model selection
-selected_model = st.sidebar.selectbox("Select Model", list(MODELS.keys()))
-selected_model_engine = MODELS[selected_model]
+# Predefined ethical topics for prompt generation
+ethical_issue = st.sidebar.selectbox(
+    "Select Ethical Issue", 
+    ["Bias and Fairness", "Data Privacy", "Accountability", "Transparency", "Ethical AI Development"]
+)
 
-# Model parameter sliders
-st.sidebar.subheader("Model Parameters")
-temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7, step=0.01)
-top_p = st.sidebar.slider("Top-P (Nucleus Sampling)", 0.0, 1.0, 1.0, step=0.01)
-max_tokens = st.sidebar.slider("Max Length", 10, 500, 150, step=10)
-
-# Ethical topic selection
-selected_department = st.sidebar.selectbox("Select Ethical Topic", list(prompts_data.keys()))
-selected_prompt = st.sidebar.selectbox("Select Scenario", prompts_data[selected_department])
-
-# Technique selection
-selected_technique = st.sidebar.selectbox("Select Technique", list(techniques.keys()))
-technique_description = techniques[selected_technique]["description"]
-
-# Output format and tone selection
-output_format = st.sidebar.selectbox("Select Output Format", ["Text", "JSON", "Bullet Points"])
-tone = st.sidebar.selectbox("Select Tone", ["Formal", "Casual", "Technical"])
-
-# Advanced Settings
-with st.sidebar.expander("Advanced Settings"):
-    role = st.selectbox("Assign Role", ["No Role", "Technical Specialist", "Editor", "Marketing Manager", "Technical Trainer", "Product Owner"])
-    use_thinking_step = st.slider("Include Thinking Step", 0, 1, 0, step=1)
-    avoid_hallucinations = st.slider("Avoid Hallucinations", 0, 1, 0, step=1)
-
-# Main content section
+# Main content layout
 st.title("Ethics in AI Tool")
+st.write("### Overview")
+st.write("This app helps users explore and understand the ethical considerations involved in AI development and deployment. It provides interactive prompts to generate insights on various ethical topics using AI models.")
 
-# Prompt and Technique Information
-st.subheader("Selected Prompt")
-user_prompt = st.text_area("Edit the ethical scenario or prompt below:", value=selected_prompt)
-st.subheader("Technique Description")
-st.info(technique_description)
+st.write("#### Selected Ethical Topic")
+prompt_text = st.text_area("Edit the ethical scenario or prompt below:", generate_ethics_prompt(ethical_issue))
 
-# Apply the technique to the prompt
-transformed_prompt, transformation_explanation = apply_technique(user_prompt, selected_technique)
+st.write("#### Ethics in AI Description")
+st.write(f"Topic Selected: {ethical_issue}")
+if ethical_issue == "Bias and Fairness":
+    st.write("Bias and fairness concerns arise when AI systems disproportionately impact certain groups or individuals.")
+elif ethical_issue == "Data Privacy":
+    st.write("Data privacy involves ensuring that AI systems handle sensitive user information securely.")
+elif ethical_issue == "Accountability":
+    st.write("Accountability concerns arise when AI systems make harmful or incorrect decisions.")
+elif ethical_issue == "Transparency":
+    st.write("Transparency is crucial to make AI algorithms explainable and understandable by stakeholders.")
+elif ethical_issue == "Ethical AI Development":
+    st.write("Ethical AI development involves integrating fairness, accountability, and transparency throughout the AI lifecycle.")
 
-# Adjust the transformed prompt based on output format and tone
-formatted_prompt = f"{transformed_prompt}\n\nFormat the output in {output_format} format with a {tone} tone."
-
-if role != "No Role":
-    formatted_prompt += f"\n\nRole: {role}."
-if use_thinking_step == 1:
-    formatted_prompt += "\n\n### Thinking Step\nExplain step-by-step reasoning."
-if avoid_hallucinations == 1:
-    formatted_prompt += "\n\nIf you don't know, state 'I don't know.'"
-
-st.subheader("Transformed Prompt")
-st.info(formatted_prompt)
-
-# Display transformation explanation
-detailed_explanation = f"""
-Transformation applied using the **{selected_technique}** technique:
-- **Output Format**: {output_format}
-- **Tone**: {tone}
-- **Temperature**: {temperature}
-- **Top-P**: {top_p}
-- **Max Tokens**: {max_tokens}
-- **Role**: {role}
-- **Thinking Step**: {"Enabled" if use_thinking_step == 1 else "Disabled"}
-- **Avoid Hallucinations**: {"Enabled" if avoid_hallucinations == 1 else "Disabled"}
-"""
-st.subheader("Transformation Explanation")
-st.info(detailed_explanation)
-
-# Button to get model response
+# Button to generate response from GPT model
 if st.button("Generate Response"):
-    with st.spinner("Generating response..."):
-        response = get_model_response(
-            selected_model_engine,
-            formatted_prompt,
+    with st.spinner("Thinking..."):
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are an AI ethics assistant."},
+                {"role": "user", "content": prompt_text}
+            ],
             temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            top_p=top_p
         )
-    if response:
-        st.subheader("Model Response")
-        st.write(response)
-    else:
-        st.error("The response could not be generated. Try again later or select another model.")
+        ethics_response = response['choices'][0]['message']['content']
+        st.write("### Generated Response")
+        st.write(ethics_response)
+
+# External link to your prompt engineering app
+st.markdown("### Related Tool")
+st.write("Want to learn more about prompt engineering techniques?")
+st.markdown("[Explore the Prompt Engineering Tool](https://prompt-engineering-agvnm69ahlwpyqpqrws4nd.streamlit.app)")
+
+# Additional Resources
+st.write("### Additional Resources")
+st.write("""
+- [AI Ethics Guidelines](https://example.com/ethics)
+- [AI Bias Mitigation Techniques](https://example.com/bias-mitigation)
+- [Responsible AI Development Practices](https://example.com/responsible-ai)
+""")
